@@ -1,0 +1,20 @@
+Github-to-JIRA
+--------------
+
+This script will use the Github API to get a dump of all of the issues in a
+Github repository, and then put that in a CSV file which you can then use to
+import into JIRA.
+
+When doing the inport in JIRA, map the columns like so:
+
+ * Title: Summary
+ * Body: Description
+ * Created At: Creation Time
+ * State: Status (and then tick 'Map this type')
+ * Comments X: Comment Body
+
+Date format: yyyy/MM/dd HH:mm
+
+Run it like so:
+
+ ./github_to_jira.py user/repository issues.csv
