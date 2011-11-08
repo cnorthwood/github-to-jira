@@ -2,6 +2,8 @@
 
 import urllib2
 import simplejson
+import base64
+import os
 import sys
 from time import sleep
 import csv
@@ -12,12 +14,21 @@ GITHUB_API = 'https://github.com/api/v2/json/%s'
 GITHUB_ISSUES_LIST = "issues/list/%s/%s"
 GITHUB_ISSUES_COMMENTS = "issues/comments/%s/%s"
 
+def github_open_api(call,
+                   username=os.getenv('GITHUB_USERNAME'),
+                   password=os.getenv('GITHUB_PASSWORD')):
+    request = urllib2.Request(GITHUB_API % (call,))
+    if username:
+        auth = base64.encodestring(':'.join((username, password))).strip('\n')
+        request.add_header('Authorization', 'Basic ' + auth)
+    return urllib2.urlopen(request)
+
 def github_api_call(call):
     """
     Make a call to the Github API
     """
     try:
-        return simplejson.loads(urllib2.urlopen(GITHUB_API % (call)).read())
+        return simplejson.loads(github_open_api(call).read())
     except urllib2.HTTPError as e:
         if e.code == 403:
             # hit the rate limit - wait 60 seconds then retry
