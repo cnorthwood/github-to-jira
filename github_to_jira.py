@@ -3,6 +3,7 @@
 import base64
 import collections
 import csv
+import itertools as it
 import os
 import sys
 from time import sleep
@@ -42,6 +43,9 @@ def github_api_call(call):
 def get_num_comments(issue):
     return issue['comments']
 
+def get_num_labels(issue):
+    return len(issue['labels'])
+
 def get_comments(repository, issue):
     """
     Get a list of all the comments for this issue as dictionaries.
@@ -56,6 +60,12 @@ def get_comments(repository, issue):
             'body': comment['body'],
         })
     return comments
+
+def get_labels(repository, issue):
+    """
+    Get a list of all the labels associated with this issue.
+    """
+    return issue['labels']
 
 def load_github_issues(repository):
     """
@@ -82,14 +92,33 @@ def ensure_encoded(obj, encoding='us-ascii'):
     else:
         return obj
 
+def pad_list(l, size, obj):
+    """
+    Pad a list to given size by appending the object repeatedly as necessary.
+    Cuts off the end of the list if it is longer than the supplied size.
+
+    >>> pad_list(range(4), 6, 'x')
+    [0, 1, 2, 3, 'x', 'x']
+    >>> pad_list(range(4), 2, 'x')
+    [0, 1]
+    >>> pad_list(range(4), 4, 'x')
+    [0, 1, 2, 3]
+
+    """
+    return list(it.islice(it.chain(l, it.repeat(obj)), size))
+
 def write_jira_csv(fd, repository):
     # Get the most comments on an issue to decide how many comment columns we
     # need
     issues = load_github_issues(repository).values()
     issue_writer = csv.writer(fd)
+    max_num_labels = max(map(get_num_labels, issues))
     max_num_comments = max(map(get_num_comments, issues))
+    label_headers = ['Labels %d' % (i+1) for i in xrange(max_num_labels)]
     comment_headers = ['Comments %d' % (i+1) for i in xrange(max_num_comments)]
-    headers = ['ID', 'Title', 'Body', 'Created At', 'State'] + comment_headers
+    headers = ['ID', 'Title', 'Body', 'Created At', 'State']
+    headers += label_headers
+    headers += comment_headers
     issue_writer.writerow(headers)
     known_attr_parsers = dict(
             created_at=lambda x: x.strftime('%Y/%m/%d %H:%M'))
@@ -98,6 +127,7 @@ def write_jira_csv(fd, repository):
     for issue in issues:
         attrs = ['number', 'title', 'body', 'created_at', 'state']
         row = [all_attr_parsers[attr](issue[attr]) for attr in attrs]
+        row += pad_list(get_labels(repository, issue), max_num_labels, '')
         row += [comment['body'] for comment in get_comments(repository, issue)]
         # As per http://docs.python.org/library/csv.html
         row = [ensure_encoded(e, 'utf-8') for e in row]
