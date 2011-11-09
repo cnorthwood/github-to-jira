@@ -28,7 +28,7 @@ def github_api_call(call):
     Make a call to the Github API
     """
     try:
-        return simplejson.loads(github_open_api(call).read())
+        return simplejson.load(github_open_api(call))
     except urllib2.HTTPError as e:
         if e.code == 403:
             # hit the rate limit - wait 60 seconds then retry
