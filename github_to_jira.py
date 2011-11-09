@@ -72,6 +72,15 @@ def load_github_issues(repository):
             issues[issue['number']] = issue
     return issues
 
+def ensure_encoded(obj, encoding='us-ascii'):
+    """
+    If a string is unicode return its encoded version, otherwise return it raw.
+    """
+    if isinstance(obj, unicode):
+        return obj.encode(encoding)
+    else:
+        return obj
+
 def write_jira_csv(fd, repository):
     # Get the most comments on an issue to decide how many comment columns we
     # need
@@ -88,6 +97,8 @@ def write_jira_csv(fd, repository):
                issue['created_at'].strftime('%Y/%m/%d %H:%M'),
                issue['state']]
         row += [comment['body'] for comment in get_comments(repository, issue)]
+        # As per http://docs.python.org/library/csv.html
+        row = [ensure_encoded(e, 'utf-8') for e in row]
         issue_writer.writerow(row)
 
 if __name__ == '__main__':
