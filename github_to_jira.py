@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import base64
+import collections
 import csv
 import os
 import sys
@@ -90,12 +91,13 @@ def write_jira_csv(fd, repository):
     comment_headers = ['Comments %d' % (i+1) for i in xrange(max_num_comments)]
     headers = ['ID', 'Title', 'Body', 'Created At', 'State'] + comment_headers
     issue_writer.writerow(headers)
+    known_attr_parsers = dict(
+            created_at=lambda x: x.strftime('%Y/%m/%d %H:%M'))
+    all_attr_parsers = collections.defaultdict(lambda: lambda x: x,
+                                               known_attr_parsers)
     for issue in issues:
-        row = [issue['number'],
-               issue['title'],
-               issue['body'],
-               issue['created_at'].strftime('%Y/%m/%d %H:%M'),
-               issue['state']]
+        attrs = ['number', 'title', 'body', 'created_at', 'state']
+        row = [all_attr_parsers[attr](issue[attr]) for attr in attrs]
         row += [comment['body'] for comment in get_comments(repository, issue)]
         # As per http://docs.python.org/library/csv.html
         row = [ensure_encoded(e, 'utf-8') for e in row]
