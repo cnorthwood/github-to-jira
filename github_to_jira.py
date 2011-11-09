@@ -38,6 +38,24 @@ def github_api_call(call):
         else:
             raise
 
+def get_num_comments(issue):
+    return issue['comments']
+
+def get_comments(repository, issue):
+    """
+    Get a list of all the comments for this issue as dictionaries.
+    """
+    print "Fetching comments for issue %d..." % issue['number']
+    comments = []
+    data = github_api_call(GITHUB_ISSUES_COMMENTS %
+                                               (repository, issue['number']))
+    for comment in data['comments']:
+        comments.append({
+            'created_at': dateparse(comment['created_at']),
+            'body': comment['body'],
+        })
+    return comments
+
 def load_github_issues(repository):
     """
     Get all the issues associated with a Github repository as a dictionary of
@@ -45,50 +63,33 @@ def load_github_issues(repository):
     issue keys: created_at, state, title, body, comments, which is a list of
     dictionaries with keys: created_at and body
     """
-    
     issues = {}
-    
     for state in ('open', 'closed'):
         data = github_api_call(GITHUB_ISSUES_LIST % (repository, state))
-        print "Fetched issues"
+        print "Fetched %s issues" % state
         for issue in data['issues']:
-            issues[issue['number']] = {
-                'title': issue['title'],
-                'body': issue['body'],
-                'created_at': dateparse(issue['created_at']),
-                'state': issue['state'],
-                'comments': []
-            }
-            
-            print "Fetching comments for issue %d..." % issue['number']
-            comments_data = github_api_call(
-                    GITHUB_ISSUES_COMMENTS % (repository, issue['number']))
-            for comment in comments_data['comments']:
-                issues[issue['number']]['comments'].append({
-                    'created_at': dateparse(comment['created_at']),
-                    'body': comment['body'],
-                })
+            issue['created_at'] = dateparse(issue['created_at'])
+            issues[issue['number']] = issue
     return issues
 
-def write_jira_csv(fd, issues):
+def write_jira_csv(fd, repository):
     # Get the most comments on an issue to decide how many comment columns we
     # need
-    comments_columns = []
-    for i in range(max(map(lambda issue: len(issue['comments']),
-                           issues.values()))):
-        comments_columns.append('Comments %d' % (i+1))
+    issues = load_github_issues(repository).values()
     issue_writer = csv.writer(fd)
-    issue_writer.writerow(['ID', 'Title', 'Body', 'Created At', 'State'] +
-        comments_columns)
-    for id in issues:
-        issue_writer.writerow([
-            id,
-            issues[id]['title'],
-            issues[id]['body'],
-            issues[id]['created_at'].strftime('%Y/%m/%d %H:%M'),
-            issues[id]['state']] + 
-            [comment['body'] for comment in issues[id]['comments']])
+    max_num_comments = max(map(get_num_comments, issues))
+    comment_headers = ['Comments %d' % (i+1) for i in xrange(max_num_comments)]
+    headers = ['ID', 'Title', 'Body', 'Created At', 'State'] + comment_headers
+    issue_writer.writerow(headers)
+    for issue in issues:
+        row = [issue['number'],
+               issue['title'],
+               issue['body'],
+               issue['created_at'].strftime('%Y/%m/%d %H:%M'),
+               issue['state']]
+        row += [comment['body'] for comment in get_comments(repository, issue)]
+        issue_writer.writerow(row)
 
 if __name__ == '__main__':
     with open(sys.argv[2], 'w') as fd:
-        write_jira_csv(fd, load_github_issues(sys.argv[1]))
+        write_jira_csv(fd, sys.argv[1])
