@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-import urllib2
-import simplejson
 import base64
+import csv
 import os
 import sys
 from time import sleep
-import csv
+import urllib2
+
 from dateutil.parser import parse as dateparse
-import datetime
+import simplejson
 
 GITHUB_API = 'https://github.com/api/v2/json/%s'
 GITHUB_ISSUES_LIST = "issues/list/%s/%s"
